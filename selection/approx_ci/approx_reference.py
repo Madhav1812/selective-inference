@@ -57,7 +57,6 @@ def approx_reference_adaptive(grid,
                      linear_part,
                      offset,
                      jacob_adapt,
-                     select,
                      solve_args={'tol': 1.e-15}
                      ):
     if np.asarray(observed_target).shape in [(), (0,)]:
@@ -83,8 +82,7 @@ def approx_reference_adaptive(grid,
                            **solve_args)
 
         ref_hat.append(-val - (conjugate_arg.T.dot(cond_cov).dot(conjugate_arg) / 2.))
-
-        jacob_adapt[k] = np.reciprocal(np.prod(np.nonzero(np.multiply(not select,(cond_mean_grid-offset)))))
+        jacob_adapt[k] = np.prod(np.reciprocal(cond_mean_grid))
 
     return np.asarray(ref_hat)
 

@@ -17,18 +17,18 @@ from copy import copy
 
 import numpy as np
 
-from ..distributions.pvalue import truncnorm_cdf, norm_interval
-from ..truncated.gaussian import truncated_gaussian, truncated_gaussian_old
-from ..sampling.api import (sample_truncnorm_white, 
+from selection.distributions.pvalue import truncnorm_cdf, norm_interval
+from selection.truncated.gaussian import truncated_gaussian, truncated_gaussian_old
+from selection.sampling.api import (sample_truncnorm_white,
                             sample_truncnorm_white_sphere,
                             sample_truncnorm_white_ball)
-from ..distributions.chain import (reversible_markov_chain,
+from selection.distributions.chain import (reversible_markov_chain,
                                    parallel_test,
                                    serial_test)
 
 from .estimation import optimal_tilt
 
-from ..distributions.discrete_family import discrete_family
+from selection.distributions.discrete_family import discrete_family
 from mpmath import mp
 
 WARNINGS = False

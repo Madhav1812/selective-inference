@@ -172,8 +172,7 @@ def test_approx_pivot_adapt(n= 200,
                                              conv.logdens_linear,
                                              conv.A_scaling,
                                              conv.b_scaling,
-                                             jacob,
-                                             nonzero)
+                                             jacob)
 
             area_cum_adapt = approx_adaptive_density(grid,
                                       mean_parameter,

@@ -14,16 +14,16 @@ from scipy.stats import norm as ndist
 import regreg.api as rr
 import regreg.affine as ra
 
-from ..constraints.affine import constraints
-from ..algorithms.sqrt_lasso import solve_sqrt_lasso, choose_lambda
+from selection.constraints.affine import constraints
+from selection.algorithms.sqrt_lasso import solve_sqrt_lasso, choose_lambda
 
+
+from selection.base import restricted_estimator
+from selection.algorithms.debiased_lasso import debiasing_matrix
 from .query import (gaussian_query,
                     affine_gaussian_sampler)
 
 from .randomization import randomization
-from ..base import restricted_estimator
-from ..algorithms.debiased_lasso import debiasing_matrix
-
 #### High dimensional version
 #### - parametric covariance
 #### - Gaussian randomization
@@ -209,6 +209,7 @@ class lasso(gaussian_query):
 
         self.A_scaling = A_scaling
         self.b_scaling = b_scaling
+        self.opt_offset = opt_offset
 
         return active_signs
 
