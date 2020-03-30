@@ -131,17 +131,19 @@ def test_approx_pivot_adapt(n= 200,
 
         print("sigma estimated and true ", sigma, sigma_)
 
-        #W= np.multiply(np.amax(abs(X.transpose().dot(y))),abs(np.reciprocal(X.transpose().dot(y))))*sigma_
+
         #W= abs(np.reciprocal(X.transpose().dot(y)))
-        W = sigma_ *abs(np.reciprocal(X.transpose().dot(y)))
+        #We have to scale our weights, so as to match the selectivity of the LASSO
+        W = 4*sigma_ *abs(np.reciprocal(X.transpose().dot(y)))
         conv = lasso.gaussian(X,
                               y,
                               W,
                               randomizer_scale=randomizer_scale * sigma_)
 
         signs = conv.fit()
-        nonzero = signs != 0
-        print(nonzero.sum())
+        unselect = signs == 0
+        nonzero = np.logical_not(unselect)
+        data_vector=-X.transpose().dot(y)
         (observed_target,
          cov_target,
          cov_target_score,
@@ -149,7 +151,6 @@ def test_approx_pivot_adapt(n= 200,
                                           conv._W,
                                           nonzero,
                                           dispersion=dispersion)
-
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         pivot_adapt = []
@@ -172,7 +173,9 @@ def test_approx_pivot_adapt(n= 200,
                                              conv.logdens_linear,
                                              conv.A_scaling,
                                              conv.b_scaling,
-                                             jacob)
+                                             data_vector,
+                                             jacob,
+                                             unselect)
 
             area_cum_adapt = approx_adaptive_density(grid,
                                       mean_parameter,
@@ -308,7 +311,7 @@ def EDCF_pivot_adapt(nsim=300):
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-EDCF_pivot_adapt(nsim=10)
+EDCF_pivot_adapt(nsim=50)
 
 from rpy2 import robjects
 import rpy2.robjects.numpy2ri

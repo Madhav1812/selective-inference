@@ -26,7 +26,7 @@ from selection.distributions.chain import (reversible_markov_chain,
                                    parallel_test,
                                    serial_test)
 
-from .estimation import optimal_tilt
+from selection.constraints.estimation import optimal_tilt
 
 from selection.distributions.discrete_family import discrete_family
 from mpmath import mp

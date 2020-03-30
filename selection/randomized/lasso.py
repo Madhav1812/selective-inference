@@ -20,10 +20,10 @@ from selection.algorithms.sqrt_lasso import solve_sqrt_lasso, choose_lambda
 
 from selection.base import restricted_estimator
 from selection.algorithms.debiased_lasso import debiasing_matrix
-from .query import (gaussian_query,
+from selection.randomized.query import (gaussian_query,
                     affine_gaussian_sampler)
 
-from .randomization import randomization
+from selection.randomized.randomization import randomization
 #### High dimensional version
 #### - parametric covariance
 #### - Gaussian randomization
@@ -209,7 +209,6 @@ class lasso(gaussian_query):
 
         self.A_scaling = A_scaling
         self.b_scaling = b_scaling
-        self.opt_offset = opt_offset
 
         return active_signs
 
