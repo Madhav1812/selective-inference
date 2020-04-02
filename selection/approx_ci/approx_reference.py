@@ -88,7 +88,7 @@ def approx_reference_adaptive(grid,
         ref_hat.append(-val - (conjugate_arg.T.dot(cond_cov).dot(conjugate_arg) / 2.))
         jacob_extra_full=pre_matrix.dot(np.asarray([grid[k]]))+n_vector
         jacob_extra_unselect=jacob_extra_full[unselected]
-        jacob_adapt[k] = abs((np.prod(jacob_extra_unselect)))
+        jacob_adapt[k] = abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
 
     return np.asarray(ref_hat)
 

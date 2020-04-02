@@ -134,7 +134,7 @@ def test_approx_pivot_adapt(n= 200,
 
         #W= abs(np.reciprocal(X.transpose().dot(y)))
         #We have to scale our weights, so as to match the selectivity of the LASSO
-        W = 4*sigma_ *abs(np.reciprocal(X.transpose().dot(y)))
+        W = np.sqrt(n)*sigma_ *abs(np.reciprocal(X.transpose().dot(y)))/3
         conv = lasso.gaussian(X,
                               y,
                               W,
@@ -277,10 +277,10 @@ def test_approx_pivot_carved(n= 100,
 def EDCF_pivot(nsim=300):
     _pivot=[]
     for i in range(nsim):
-        _pivot.extend(test_approx_pivot(n= 200,
-                                        p= 50,
+        _pivot.extend(test_approx_pivot(n= 1000,
+                                        p= 200,
                                         signal_fac= 0.25,
-                                        s= 5,
+                                        s= 15,
                                         sigma= 1.,
                                         rho= 0.40,
                                         randomizer_scale= 1.))
@@ -292,7 +292,7 @@ def EDCF_pivot(nsim=300):
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-#EDCF_pivot(nsim=50)
+#EDCF_pivot(nsim=200)
 def EDCF_pivot_adapt(nsim=300):
     _pivot=[]
     for i in range(nsim):
@@ -311,7 +311,7 @@ def EDCF_pivot_adapt(nsim=300):
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-EDCF_pivot_adapt(nsim=50)
+EDCF_pivot_adapt(nsim=200)
 
 from rpy2 import robjects
 import rpy2.robjects.numpy2ri
