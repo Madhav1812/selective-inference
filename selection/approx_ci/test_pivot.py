@@ -296,10 +296,10 @@ def EDCF_pivot(nsim=300):
 def EDCF_pivot_adapt(nsim=300):
     _pivot=[]
     for i in range(nsim):
-        _pivot.extend(test_approx_pivot_adapt(n= 200,
-                                        p= 50,
+        _pivot.extend(test_approx_pivot_adapt(n= 1000,
+                                        p= 200,
                                         signal_fac= 0.25,
-                                        s= 5,
+                                        s= 15,
                                         sigma= 1.,
                                         rho= 0.40,
                                         randomizer_scale= 1.))
