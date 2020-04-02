@@ -110,7 +110,7 @@ def approx_adaptive_density(grid,
 
     _approx_density = []
     for k in range(grid.shape[0]):
-        _approx_density.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)+ approx_log_ref[k])*jacob_adapt[k])
+        _approx_density.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)+ approx_log_ref[k]+np.log(jacob_adapt[k])))
     _approx_density_ = np.asarray(_approx_density)/(np.asarray(_approx_density).sum())
     return np.cumsum(_approx_density_)
 
