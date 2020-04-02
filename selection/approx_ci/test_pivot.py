@@ -134,7 +134,7 @@ def test_approx_pivot_adapt(n= 200,
 
         #W= abs(np.reciprocal(X.transpose().dot(y)))
         #We have to scale our weights, so as to match the selectivity of the LASSO
-        W = np.sqrt(n)*sigma_ *abs(np.reciprocal(X.transpose().dot(y)))/3
+        W = np.log(p)*sigma_*abs(np.reciprocal(X.transpose().dot(y)))
         conv = lasso.gaussian(X,
                               y,
                               W,
