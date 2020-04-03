@@ -141,9 +141,11 @@ def test_approx_pivot_adapt(n= 200,
                               randomizer_scale=randomizer_scale * sigma_)
 
         signs = conv.fit()
+        opt_offset=conv.initial_subgrad
+        data_vector=-X.transpose().dot(y)
+
         unselect = signs == 0
         nonzero = np.logical_not(unselect)
-        data_vector=-X.transpose().dot(y)
         (observed_target,
          cov_target,
          cov_target_score,
@@ -151,6 +153,10 @@ def test_approx_pivot_adapt(n= 200,
                                           conv._W,
                                           nonzero,
                                           dispersion=dispersion)
+        prec_target=np.linalg.inv(cov_target)
+        pre_matrix = -cov_target_score.T.dot(prec_target)
+        c_vector=data_vector-pre_matrix.dot(observed_target)
+        n_vector=c_vector-opt_offset
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         pivot_adapt = []
@@ -173,7 +179,7 @@ def test_approx_pivot_adapt(n= 200,
                                              conv.logdens_linear,
                                              conv.A_scaling,
                                              conv.b_scaling,
-                                             data_vector,
+                                             n_vector,
                                              jacob,
                                              unselect)
 
