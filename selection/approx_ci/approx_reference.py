@@ -56,6 +56,7 @@ def approx_reference_adaptive(grid,
                      logdens_linear,
                      linear_part,
                      offset,
+                     data_vector,
                      n_vector,
                      jacob_adapt,
                      unselected,
@@ -68,8 +69,9 @@ def approx_reference_adaptive(grid,
     prec_target = np.linalg.inv(cov_target)
     target_lin = - logdens_linear.dot(cov_target_score.T.dot(prec_target))
     prec_opt = np.linalg.inv(cond_cov)
-    #Get the A matrix and vector N_E from the data decomposition: -X^Ty=A\bar{\beta}_{j\cdot E}+N_E
-    pre_matrix=cov_target_score.T.dot(prec_target)
+    ##Get the A matrix and vector N_E from the data decomposition: -X^Ty=A\bar{\beta}_{j\cdot E}+N_E
+    pre_matrix=-cov_target_score.T.dot(prec_target)
+    #n_vector=data_vector-pre_matrix.dot(observed_target)
     ref_hat = []
     solver = solve_barrier_affine_C
     for k in range(grid.shape[0]):

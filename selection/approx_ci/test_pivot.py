@@ -155,7 +155,7 @@ def test_approx_pivot_adapt(n= 200,
                                           dispersion=dispersion)
         prec_target=np.linalg.inv(cov_target)
         pre_matrix = -cov_target_score.T.dot(prec_target)
-        c_vector=data_vector-pre_matrix.dot(observed_target)
+        c_vector=data_vector+pre_matrix.dot(observed_target)
         n_vector=c_vector-opt_offset
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
@@ -179,6 +179,7 @@ def test_approx_pivot_adapt(n= 200,
                                              conv.logdens_linear,
                                              conv.A_scaling,
                                              conv.b_scaling,
+                                             data_vector,
                                              n_vector,
                                              jacob,
                                              unselect)
