@@ -155,7 +155,7 @@ def test_approx_pivot_adapt(n= 200,
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         pivot_adapt = []
-        jacob=np.empty(grid_num)
+
         for m in range(nonzero.sum()):
             observed_target_uni = (observed_target[m]).reshape((1,))
             cov_target_uni = (np.diag(cov_target)[m]).reshape((1,1))
@@ -167,7 +167,7 @@ def test_approx_pivot_adapt(n= 200,
             grid = np.linspace(- 25., 25., num=grid_num)
             grid_indx_obs = np.argmin(np.abs(grid - observed_target_uni))
 
-            approx_log_ref_adapt= approx_reference_adaptive(grid,
+            approx_log_ref_adapt, jacob= approx_reference_adaptive(grid,
                                              observed_target_uni,
                                              cov_target_uni,
                                              cov_target_score_uni,
@@ -179,7 +179,6 @@ def test_approx_pivot_adapt(n= 200,
                                              conv.b_scaling,
                                              a_vector,
                                              n_vector,
-                                             jacob,
                                              unselect)
 
             area_cum_adapt = approx_adaptive_density(grid,

@@ -58,7 +58,6 @@ def approx_reference_adaptive(grid,
                      offset,
                      a_vector,
                      n_vector,
-                     jacob_adapt,
                      unselected,
                      solve_args={'tol': 1.e-15}
                      ):
@@ -71,6 +70,7 @@ def approx_reference_adaptive(grid,
     prec_opt = np.linalg.inv(cond_cov)
     ref_hat = []
     solver = solve_barrier_affine_C
+    jacob_adapt = np.empty(grid.shape[0])
     for k in range(grid.shape[0]):
         cond_mean_grid = target_lin.dot(np.asarray([grid[k]])) + (cond_mean - target_lin.dot(observed_target))
         conjugate_arg = prec_opt.dot(cond_mean_grid)
@@ -87,7 +87,7 @@ def approx_reference_adaptive(grid,
         jacob_extra_unselect=jacob_extra_full[unselected]
         jacob_adapt[k] = abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
 
-    return np.asarray(ref_hat)
+    return np.asarray(ref_hat), jacob_adapt
 
 def approx_density(grid,
                    mean_parameter,
