@@ -56,7 +56,7 @@ def approx_reference_adaptive(grid,
                      logdens_linear,
                      linear_part,
                      offset,
-                     data_vector,
+                     a_vector,
                      n_vector,
                      jacob_adapt,
                      unselected,
@@ -69,9 +69,6 @@ def approx_reference_adaptive(grid,
     prec_target = np.linalg.inv(cov_target)
     target_lin = - logdens_linear.dot(cov_target_score.T.dot(prec_target))
     prec_opt = np.linalg.inv(cond_cov)
-    ##Get the A matrix and vector N_E from the data decomposition: -X^Ty=A\bar{\beta}_{j\cdot E}+N_E
-    pre_matrix=-cov_target_score.T.dot(prec_target)
-    #n_vector=data_vector-pre_matrix.dot(observed_target)
     ref_hat = []
     solver = solve_barrier_affine_C
     for k in range(grid.shape[0]):
@@ -86,7 +83,7 @@ def approx_reference_adaptive(grid,
                            **solve_args)
 
         ref_hat.append(-val - (conjugate_arg.T.dot(cond_cov).dot(conjugate_arg) / 2.))
-        jacob_extra_full=pre_matrix.dot(np.asarray([grid[k]]))+n_vector
+        jacob_extra_full=a_vector*np.asarray([grid[k]])+n_vector
         jacob_extra_unselect=jacob_extra_full[unselected]
         jacob_adapt[k] = abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
 
@@ -110,7 +107,7 @@ def approx_adaptive_density(grid,
 
     _approx_density = []
     for k in range(grid.shape[0]):
-        _approx_density.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)+ approx_log_ref[k]+np.log(jacob_adapt[k])))
+        _approx_density.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)+ approx_log_ref[k])*jacob_adapt[k])
     _approx_density_ = np.asarray(_approx_density)/(np.asarray(_approx_density).sum())
     return np.cumsum(_approx_density_)
 
