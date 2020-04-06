@@ -85,6 +85,8 @@ def approx_reference_adaptive(grid,
         ref_hat.append(-val - (conjugate_arg.T.dot(cond_cov).dot(conjugate_arg) / 2.))
         jacob_extra_full=a_vector*np.asarray([grid[k]])+n_vector
         jacob_extra_unselect=jacob_extra_full[unselected]
+        ##The determinant of the Jacobian would be 1/(\prod_{q\notin E}(A_j\bar{\beta}_{j\cdot E}+N_j)), and we need to divide the Jacobian
+        ##jacob_adapt is \prod_{q\notin E}(A_j\bar{\beta}_{j\cdot E}+N_j), which will be multiplied with the density
         jacob_adapt[k] = abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
 
     return np.asarray(ref_hat), jacob_adapt
