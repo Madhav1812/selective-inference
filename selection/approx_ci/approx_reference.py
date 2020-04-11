@@ -67,6 +67,7 @@ def approx_reference_adaptive(grid,
     observed_target = np.atleast_1d(observed_target)
     prec_target = np.linalg.inv(cov_target)
     target_lin = - logdens_linear.dot(cov_target_score.T.dot(prec_target))
+    data_vector=a_vector*observed_target+n_vector
     prec_opt = np.linalg.inv(cond_cov)
     ref_hat = []
     solver = solve_barrier_affine_C
@@ -83,11 +84,11 @@ def approx_reference_adaptive(grid,
                            **solve_args)
 
         ref_hat.append(-val - (conjugate_arg.T.dot(cond_cov).dot(conjugate_arg) / 2.))
-        jacob_extra_full=a_vector*np.asarray([grid[k]])+n_vector
-        jacob_extra_unselect=jacob_extra_full[unselected]
-        ##The determinant of the Jacobian would be 1/(\prod_{q\notin E}(A_j\bar{\beta}_{j\cdot E}+N_j)), and we need to divide the Jacobian
-        ##jacob_adapt is \prod_{q\notin E}(A_j\bar{\beta}_{j\cdot E}+N_j), which will be multiplied with the density
-        jacob_adapt[k] = abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
+        #jacob_extra_full=a_vector*np.asarray([grid[k]])+n_vector
+        #jacob_extra_unselect=jacob_extra_full[unselected]
+        #jacob_adapt[k] = 1/abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
+        data_unselect = data_vector[unselected]
+        jacob_adapt[k] = 1 / abs((np.prod(jacob_extra_unselect[np.nonzero(data_unselect)])))
 
     return np.asarray(ref_hat), jacob_adapt
 
