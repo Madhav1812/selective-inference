@@ -142,9 +142,13 @@ def test_approx_pivot_adapt(n= 200,
 
         signs = conv.fit()
         data_vector=-X.transpose().dot(y)
-
         unselect = signs == 0
         nonzero = np.logical_not(unselect)
+        subgrad=conv.initial_subgrad
+        subgrad[nonzero]=signs[nonzero]
+        fix_lambda=abs(np.reciprocal(data_vector))
+        fix_matrix=np.diag(fix_lambda)
+        c_initial=fix_matrix.dot(subgrad)
         (observed_target,
          cov_target,
          cov_target_score,
@@ -179,6 +183,7 @@ def test_approx_pivot_adapt(n= 200,
                                              conv.b_scaling,
                                              a_vector,
                                              n_vector,
+                                             subgrad,
                                              unselect)
 
             area_cum_adapt = approx_adaptive_density(grid,
