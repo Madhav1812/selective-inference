@@ -60,8 +60,8 @@ def approx_reference_adaptive(grid,
                      n_vector,
                      subgrad,
                      unselected,
-                     p,
-                     sigma_,
+                     c_initial,
+                     scale,
                      solve_args={'tol': 1.e-15}
                      ):
     if np.asarray(observed_target).shape in [(), (0,)]:
@@ -70,17 +70,13 @@ def approx_reference_adaptive(grid,
     observed_target = np.atleast_1d(observed_target)
     prec_target = np.linalg.inv(cov_target)
     target_lin = - logdens_linear.dot(cov_target_score.T.dot(prec_target))
-    data_vector=a_vector*observed_target+n_vector
-    fix_lambda = np.log(p)*sigma_*abs(np.reciprocal(data_vector))
-    fix_matrix = np.diag(fix_lambda)
-    c_initial = fix_matrix.dot(subgrad)
     prec_opt = np.linalg.inv(cond_cov)
     ref_hat = []
     solver = solve_barrier_affine_C
     jacob_adapt = np.empty(grid.shape[0])
     for k in range(grid.shape[0]):
         jacob_extra_full = a_vector * np.asarray([grid[k]]) + n_vector
-        grid_lambda=np.log(p)*sigma_*abs(np.reciprocal(jacob_extra_full))
+        grid_lambda=scale*abs(np.reciprocal(jacob_extra_full))
         grid_matrix=np.diag(grid_lambda)
         c_grid=grid_matrix.dot(subgrad)
         jacob_extra_unselect = jacob_extra_full[unselected]
@@ -99,8 +95,6 @@ def approx_reference_adaptive(grid,
         jacob_extra_full=a_vector*np.asarray([grid[k]])+n_vector
         jacob_extra_unselect=jacob_extra_full[unselected]
         jacob_adapt[k] = 1/abs((np.prod(jacob_extra_unselect[np.nonzero(jacob_extra_unselect)])))
-        #data_unselect = data_vector[unselected]
-        #jacob_adapt[k] = 1 / abs((np.prod(jacob_extra_unselect[np.nonzero(data_unselect)])))
 
     return np.asarray(ref_hat), jacob_adapt
 

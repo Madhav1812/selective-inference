@@ -134,7 +134,8 @@ def test_approx_pivot_adapt(n= 200,
 
         #W= abs(np.reciprocal(X.transpose().dot(y)))
         #We have to scale our weights, so as to match the selectivity of the LASSO
-        W = np.log(p)*sigma_*abs(np.reciprocal(X.transpose().dot(y)))
+        scale=np.log(p)*sigma_
+        W = scale*abs(np.reciprocal(X.transpose().dot(y)))
         conv = lasso.gaussian(X,
                               y,
                               W,
@@ -148,6 +149,7 @@ def test_approx_pivot_adapt(n= 200,
         fix_matrix=np.diag(W)
         inv_fix=np.linalg.inv(fix_matrix)
         sub_vector=inv_fix.dot(subgrad)
+        #This vector is (s_E Z_{-E}), since we removed the effect of the weights
         (observed_target,
          cov_target,
          cov_target_score,
@@ -184,8 +186,8 @@ def test_approx_pivot_adapt(n= 200,
                                              n_vector,
                                              sub_vector,
                                              unselect,
-                                             p,
-                                             sigma_)
+                                             subgrad,
+                                             scale)
 
             area_cum_adapt = approx_adaptive_density(grid,
                                       mean_parameter,
