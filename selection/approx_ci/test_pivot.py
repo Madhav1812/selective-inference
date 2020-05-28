@@ -349,6 +349,7 @@ def ECDF_pivot_naive(nsim=300):
     plt.plot(grid, ecdf_MLE_adaptive(grid), c='red', marker='o', label="Adaptive LASSO")
     plt.plot(grid, grid, 'k--')
     plt.title("Performance of Naive Pivots for Different Selection Methods")
+    plt.legend()
     plt.show()
 
 ECDF_pivot_naive(nsim=10)
