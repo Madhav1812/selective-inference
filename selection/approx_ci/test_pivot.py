@@ -9,10 +9,10 @@ rpy2.robjects.numpy2ri.activate()
 import matplotlib.pyplot as plt
 
 from statsmodels.distributions.empirical_distribution import ECDF
-from approx_reference import approx_reference, approx_density, approx_reference_adaptive, approx_adaptive_density
+from approx_reference import approx_reference, approx_density, approx_reference_adaptive
 
-def test_approx_pivot(n= 200,
-                      p= 50,
+def test_approx_pivot(n= 500,
+                      p= 100,
                       signal_fac= 1.,
                       s= 5,
                       sigma= 1.,
@@ -56,6 +56,7 @@ def test_approx_pivot(n= 200,
 
         signs = conv.fit()
         nonzero = signs != 0
+
         (observed_target,
          cov_target,
          cov_target_score,
@@ -67,6 +68,7 @@ def test_approx_pivot(n= 200,
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         pivot = []
+        naive_pivot = []
         for m in range(nonzero.sum()):
             observed_target_uni = (observed_target[m]).reshape((1,))
             cov_target_uni = (np.diag(cov_target)[m]).reshape((1,1))
@@ -86,23 +88,25 @@ def test_approx_pivot(n= 200,
                                              conv.A_scaling,
                                              conv.b_scaling)
 
-            area_cum = approx_density(grid,
+            area_cum, area_cum_naive = approx_density(grid,
                                       mean_parameter,
                                       cov_target_uni,
                                       approx_log_ref)
 
+
             pivot.append(1. - area_cum[grid_indx_obs])
+            naive_pivot.append(1. - area_cum_naive[grid_indx_obs])
             print("variable completed ", m+1)
-        return pivot
+        return pivot, naive_pivot
 
-def test_approx_pivot_adapt(n= 200,
-                      p= 50,
-                      signal_fac= 1.,
-                      s= 5,
-                      sigma= 1.,
-                      rho= 0.40,
-                      randomizer_scale= 1.):
 
+def test_approx_pivot_adaptive(n=200,
+                               p=50,
+                               signal_fac=1.2,
+                               s=5,
+                               sigma=1.,
+                               rho=0.40,
+                               randomizer_scale=1.):
     inst = gaussian_instance
     signal = np.sqrt(signal_fac * 2. * np.log(p))
 
@@ -116,40 +120,30 @@ def test_approx_pivot_adapt(n= 200,
                           sigma=sigma,
                           random_signs=True)[:3]
 
+        n, p = X.shape
         idx = np.arange(p)
         sigmaX = rho ** np.abs(np.subtract.outer(idx, idx))
         print("snr", beta.T.dot(sigmaX).dot(beta) / ((sigma ** 2.) * n))
 
-        n, p = X.shape
-
-        if n>p:
+        if n > p:
             dispersion = np.linalg.norm(y - X.dot(np.linalg.pinv(X).dot(y))) ** 2 / (n - p)
             sigma_ = np.sqrt(dispersion)
         else:
             dispersion = None
             sigma_ = np.std(y)
 
-        print("sigma estimated and true ", sigma, sigma_)
+        scaling = np.linalg.inv(X.T.dot(X))/(2.* sigma_)
+        W = 1./np.abs(scaling.dot(X.T.dot(y)))
 
-
-        #W= abs(np.reciprocal(X.transpose().dot(y)))
-        #We have to scale our weights, so as to match the selectivity of the LASSO
-        scale=np.log(p)*sigma_
-        W = scale*abs(np.reciprocal(X.transpose().dot(y)))
         conv = lasso.gaussian(X,
                               y,
                               W,
                               randomizer_scale=randomizer_scale * sigma_)
 
         signs = conv.fit()
-        data_vector=-X.transpose().dot(y)
-        unselect = signs == 0
-        nonzero = np.logical_not(unselect)
-        subgrad=conv.initial_subgrad
-        fix_matrix=np.diag(W)
-        inv_fix=np.linalg.inv(fix_matrix)
-        sub_vector=inv_fix.dot(subgrad)
-        #This vector is (s_E Z_{-E}), since we removed the effect of the weights
+        nonzero = signs != 0
+        print("number selected ", nonzero.sum())
+
         (observed_target,
          cov_target,
          cov_target_score,
@@ -157,46 +151,46 @@ def test_approx_pivot_adapt(n= 200,
                                           conv._W,
                                           nonzero,
                                           dispersion=dispersion)
+
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
-        pivot_adapt = []
-
+        pivot = []
+        naive_pivot = []
         for m in range(nonzero.sum()):
             observed_target_uni = (observed_target[m]).reshape((1,))
-            cov_target_uni = (np.diag(cov_target)[m]).reshape((1,1))
-            cov_target_score_uni = cov_target_score[m,:].reshape((1, p))
+            cov_target_uni = (np.diag(cov_target)[m]).reshape((1, 1))
+            cov_target_score_uni = cov_target_score[m, :].reshape((1, p))
             mean_parameter = beta_target[m]
-            a_comp=cov_target_score_uni.transpose()*(1/cov_target_uni)
-            a_vector=np.reshape(a_comp,data_vector.shape)
-            n_vector=data_vector-a_vector*(observed_target_uni)
-            grid = np.linspace(- 25., 25., num=grid_num)
+            grid = np.linspace(- 20., 20., num=grid_num)
             grid_indx_obs = np.argmin(np.abs(grid - observed_target_uni))
 
-            approx_log_ref_adapt, jacob= approx_reference_adaptive(grid,
-                                             observed_target_uni,
-                                             cov_target_uni,
-                                             cov_target_score_uni,
-                                             conv.observed_opt_state,
-                                             conv.cond_mean,
-                                             conv.cond_cov,
-                                             conv.logdens_linear,
-                                             conv.A_scaling,
-                                             conv.b_scaling,
-                                             a_vector,
-                                             n_vector,
-                                             sub_vector,
-                                             unselect,
-                                             subgrad,
-                                             scale)
+            approx_log_ref = approx_reference_adaptive(grid,
+                                                       observed_target_uni,
+                                                       cov_target_uni,
+                                                       cov_target_score_uni,
+                                                       conv.observed_opt_state,
+                                                       conv.cond_mean,
+                                                       conv.cond_cov,
+                                                       conv.logdens_linear,
+                                                       conv.A_scaling,
+                                                       conv.b_scaling,
+                                                       conv.initial_subgrad,
+                                                       conv.feature_weights,
+                                                       conv.observed_score_state,
+                                                       nonzero,
+                                                       scaling)
 
-            area_cum_adapt = approx_adaptive_density(grid,
+            area_cum, area_cum_naive = approx_density(grid,
                                       mean_parameter,
                                       cov_target_uni,
-                                      approx_log_ref_adapt, jacob)
+                                      approx_log_ref)
 
-            pivot_adapt.append(1. - area_cum_adapt[grid_indx_obs])
-            print("variable completed ", m+1)
-        return pivot_adapt
+            pivot.append(1. - area_cum[grid_indx_obs])
+            naive_pivot.append(1. - area_cum_naive[grid_indx_obs])
+            print("variable completed ", m + 1)
+
+        return pivot, naive_pivot
+
 
 def test_approx_pivot_carved(n= 100,
                              p= 50,
@@ -286,16 +280,17 @@ def test_approx_pivot_carved(n= 100,
             print("variable completed ", m + 1)
         return pivot
 
-def EDCF_pivot(nsim=300):
+def ECDF_pivot(nsim=300):
     _pivot=[]
     for i in range(nsim):
-        _pivot.extend(test_approx_pivot(n= 1000,
+        test_pivot, _ = test_approx_pivot(n= 1000,
                                         p= 200,
                                         signal_fac= 0.25,
                                         s= 15,
                                         sigma= 1.,
                                         rho= 0.40,
-                                        randomizer_scale= 1.))
+                                        randomizer_scale= 1.)
+        _pivot.extend(test_pivot)
         print("iteration completed ", i)
     plt.clf()
     ecdf_MLE = ECDF(np.asarray(_pivot))
@@ -304,17 +299,18 @@ def EDCF_pivot(nsim=300):
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-#EDCF_pivot(nsim=200)
-def EDCF_pivot_adapt(nsim=300):
-    _pivot=[]
+#ECDF_pivot(nsim=200)
+def ECDF_pivot_adapt(nsim=300):
+    _pivot = []
     for i in range(nsim):
-        _pivot.extend(test_approx_pivot_adapt(n= 1000,
-                                        p= 200,
-                                        signal_fac= 0.25,
-                                        s= 15,
-                                        sigma= 1.,
-                                        rho= 0.40,
-                                        randomizer_scale= 1.))
+        test_pivot, _ = test_approx_pivot_adaptive(n=1000,
+                                          p=200,
+                                          signal_fac=0.25,
+                                          s=15,
+                                          sigma=1.,
+                                          rho=0.40,
+                                          randomizer_scale=1.)
+        _pivot.extend(test_pivot)
         print("iteration completed ", i)
     plt.clf()
     ecdf_MLE = ECDF(np.asarray(_pivot))
@@ -323,7 +319,39 @@ def EDCF_pivot_adapt(nsim=300):
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-EDCF_pivot_adapt(nsim=200)
+#ECDF_pivot_adapt(nsim=200)
+def ECDF_pivot_naive(nsim=300):
+    _pivot = []
+    _pivot_adaptive = []
+    for i in range(nsim):
+        _, test_adaptive_naive = test_approx_pivot_adaptive(n=1000,
+                                          p=200,
+                                          signal_fac=0.25,
+                                          s=15,
+                                          sigma=1.,
+                                          rho=0.40,
+                                          randomizer_scale=1.)
+        _pivot_adaptive.extend(test_adaptive_naive)
+        _, test_naive = test_approx_pivot(n=1000,
+                                          p=200,
+                                          signal_fac=0.25,
+                                          s=15,
+                                          sigma=1.,
+                                          rho=0.40,
+                                          randomizer_scale=1.)
+        _pivot.extend(test_naive)
+        print("iteration completed ", i)
+    plt.clf()
+    ecdf_MLE = ECDF(np.asarray(_pivot))
+    ecdf_MLE_adaptive = ECDF(np.asarray(_pivot_adaptive))
+    grid = np.linspace(0, 1, 101)
+    plt.plot(grid, ecdf_MLE(grid), c='blue', marker='^', label="LASSO")
+    plt.plot(grid, ecdf_MLE_adaptive(grid), c='red', marker='o', label="Adaptive LASSO")
+    plt.plot(grid, grid, 'k--')
+    plt.title("Performance of Naive Pivots for Different Selection Methods")
+    plt.show()
+
+ECDF_pivot_naive(nsim=10)
 
 from rpy2 import robjects
 import rpy2.robjects.numpy2ri
