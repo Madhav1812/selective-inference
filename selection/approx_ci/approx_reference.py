@@ -1,7 +1,7 @@
 from __future__ import division, print_function
 
 import numpy as np
-
+from scipy.stats import norm
 import rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
 from selection.randomized.selective_MLE_utils import solve_barrier_affine as solve_barrier_affine_C
@@ -103,18 +103,37 @@ def approx_reference_adaptive(grid,
 def approx_density(grid,
                    mean_parameter,
                    cov_target,
-                   approx_log_ref):
+                   approx_log_ref,
+                   lee_lower,
+                   lee_upper):
 
     _approx_density = []
     _approx_naive_density = []
+    _approx_density_lee = []
     for k in range(grid.shape[0]):
         _approx_density.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)+ approx_log_ref[k]))
         _approx_naive_density.append(
-            np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)))
+            norm.pdf((grid[k]-mean_parameter)/np.sqrt(cov_target)))
+        if lee_lower<grid[k]<lee_upper:
+            _approx_density_lee.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)))
+        else:
+            _approx_density_lee.append(0)
     _approx_density_ = np.asarray(_approx_density)/(np.asarray(_approx_density).sum())
     _approx_naive_density_ = np.asarray(_approx_naive_density)/(np.asarray(_approx_naive_density).sum())
+    _approx_density_lee_ = np.asarray(_approx_density_lee)/(np.asarray(_approx_density_lee).sum())
     #_approx_density_ = np.asarray(_approx_density) / (np.max(_approx_density))
-    return np.cumsum(_approx_density_), np.cumsum(_approx_naive_density_)
+    return np.cumsum(_approx_density_), np.cumsum(_approx_naive_density_), np.cumsum(_approx_density_lee_)
+
+def approx_density_splitting(grid,
+                   mean_parameter,
+                   cov_target):
+
+    _approx_density_splitting = []
+    for k in range(grid.shape[0]):
+        _approx_density_splitting.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)))
+    _approx_density_splitting_ = np.asarray(_approx_density_splitting)/(np.asarray(_approx_density_splitting).sum())
+
+    return np.cumsum(_approx_density_splitting_)
 
 def approx_ci(param_grid,
               grid,
