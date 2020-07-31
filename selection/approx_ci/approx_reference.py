@@ -124,7 +124,7 @@ def approx_density(grid,
     #_approx_density_ = np.asarray(_approx_density) / (np.max(_approx_density))
     return np.cumsum(_approx_density_), np.cumsum(_approx_naive_density_), np.cumsum(_approx_density_lee_)
 
-def approx_density_splitting(grid,
+def approx_density_split(grid,
                    mean_parameter,
                    cov_target):
 
