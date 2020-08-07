@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 
 import numpy as np
+#np.seterr(divide='ignore', invalid='ignore')
 from scipy.stats import norm
 import rpy2.robjects.numpy2ri
 rpy2.robjects.numpy2ri.activate()
@@ -104,58 +105,62 @@ def approx_density(grid,
                    mean_parameter,
                    cov_target,
                    approx_log_ref,
-                   lee_lower,
-                   lee_upper):
-
+                   lee_lower=float('inf'),
+                   lee_upper=float('inf')):
     _approx_density = []
     _approx_naive_density = []
     _approx_density_lee = []
     for k in range(grid.shape[0]):
-        _approx_density.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)+ approx_log_ref[k]))
+        _approx_density.append(
+            np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target) + approx_log_ref[k]))
         _approx_naive_density.append(
-            norm.pdf((grid[k]-mean_parameter)/np.sqrt(cov_target)))
-        if lee_lower<grid[k]<lee_upper:
-            _approx_density_lee.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)))
-        else:
-            _approx_density_lee.append(0)
-    _approx_density_ = np.asarray(_approx_density)/(np.asarray(_approx_density).sum())
-    _approx_naive_density_ = np.asarray(_approx_naive_density)/(np.asarray(_approx_naive_density).sum())
-    _approx_density_lee_ = np.asarray(_approx_density_lee)/(np.asarray(_approx_density_lee).sum())
-    #_approx_density_ = np.asarray(_approx_density) / (np.max(_approx_density))
+            norm.pdf((grid[k] - mean_parameter) / np.sqrt(cov_target)))
+        lee_append = 0.
+        if lee_lower < grid[k]:
+            if lee_upper > grid[k]:
+                lee_append = np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target))
+        _approx_density_lee.append(lee_append)
+    if np.asarray(_approx_density_lee).sum() == 0:
+        _approx_density_ = _approx_density
+    else:
+        _approx_density_ = np.asarray(_approx_density) / (np.asarray(_approx_density).sum())
+    if np.asarray(_approx_naive_density).sum() == 0:
+        _approx_naive_density_ = _approx_naive_density
+    else:
+        _approx_naive_density_ = np.asarray(_approx_naive_density) / (np.asarray(_approx_naive_density).sum())
+    if np.asarray(_approx_density_lee).sum() == 0:
+        _approx_density_lee_ = _approx_density_lee
+    else:
+        _approx_density_lee_ = np.asarray(_approx_density_lee) / (np.asarray(_approx_density_lee).sum())
     return np.cumsum(_approx_density_), np.cumsum(_approx_naive_density_), np.cumsum(_approx_density_lee_)
-
-def approx_density_split(grid,
-                   mean_parameter,
-                   cov_target):
-
-    _approx_density_splitting = []
-    for k in range(grid.shape[0]):
-        _approx_density_splitting.append(np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target)))
-    _approx_density_splitting_ = np.asarray(_approx_density_splitting)/(np.asarray(_approx_density_splitting).sum())
-
-    return np.cumsum(_approx_density_splitting_)
 
 def approx_ci(param_grid,
               grid,
               cov_target,
               approx_log_ref,
-              indx_obsv):
+              indx_obsv,
+              lee_lower=-float('inf'),
+              lee_upper=float('inf')):
 
     area = np.zeros(param_grid.shape[0])
+    #area_naive = np.zeros(param_grid.shape[0])
+    #area_lee = np.zeros(param_grid.shape[0])
 
     for k in range(param_grid.shape[0]):
-        area_vec = approx_density(grid,
-                                  param_grid[k],
-                                  cov_target,
-                                  approx_log_ref)
+        area_vec, area_vec_naive, area_vec_lee = approx_density(grid,
+                                                                param_grid[k],
+                                                                cov_target,
+                                                                approx_log_ref,
+                                                                lee_lower,
+                                                                lee_upper)
         area[k] = area_vec[indx_obsv]
+        #area_naive[k] = area_vec_naive[indx_obsv]
+        #area_lee[k] = area_vec_lee[indx_obsv]
 
-    region = param_grid[(area >= 0.05) & (area <= 0.95)]
+    region = param_grid[(area > 0.05) & (area < 0.95)]
+    #region_naive = param_grid[(area_naive >= 0.05) & (area_naive <= 0.95)]
+    #region_lee = param_grid[(area_lee >= 0.05) & (area_lee <= 0.95)]
     if region.size > 0:
         return np.nanmin(region), np.nanmax(region)
     else:
         return 0., 0.
-
-
-
-

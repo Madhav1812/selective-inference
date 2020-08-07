@@ -13,7 +13,9 @@ import seaborn as sns
 import pandas as pd
 
 from statsmodels.distributions.empirical_distribution import ECDF
-from approx_reference import approx_reference, approx_reference_adaptive, approx_density, approx_density_split
+from approx_reference import approx_reference, approx_reference_adaptive, approx_density, approx_ci
+
+np.random.seed(1812)
 
 def test_approx_pivot(n= 500,
                       p= 100,
@@ -42,23 +44,27 @@ def test_approx_pivot(n= 500,
 
         n, p = X.shape
         sel = np.append(np.repeat(True, n / 2), np.repeat(False, n - n / 2))
-        sel = np.random.shuffle(sel)
+        np.random.shuffle(sel)
         mod = np.logical_not(sel)
-        X_sel = X[:sel]
-        y_sel = y[:sel]
-        X_mod = X[:mod]
-        y_mod = y[:mod]
-
+        X_sel = X[sel]
+        y_sel = y[sel]
+        X_mod = X[mod]
+        y_mod = y[mod]
         if n>p:
             dispersion = np.linalg.norm(y - X.dot(np.linalg.pinv(X).dot(y))) ** 2 / (n - p)
+            dispersion_sel = np.linalg.norm(y_sel - X_sel.dot(np.linalg.pinv(X_sel).dot(y_sel))) ** 2/ (n/2 - p)
             sigma_ = np.sqrt(dispersion)
+            sigma_sel = np.sqrt(dispersion_sel)
         else:
             dispersion = None
+            dispersion_sel = None
             sigma_ = np.std(y)
+            sigma_sel = np.std(y_sel)
 
-        print("sigma estimated and true ", sigma, sigma_)
+        print("sigma estimated and true ", sigma, sigma_, sigma_sel)
 
         W = np.ones(X.shape[1]) * np.sqrt(2 * np.log(p)) * sigma_
+        W_sel = np.ones(X.shape[1]) * np.sqrt(2 * np.log(p)) * sigma_sel
         l_lasso = np.sqrt(2*np.log(p))*sigma_
         conv = lasso.gaussian(X,
                               y,
@@ -66,8 +72,8 @@ def test_approx_pivot(n= 500,
                               randomizer_scale=randomizer_scale * sigma_)
         conv_sel = lasso.gaussian(X_sel,
                               y_sel,
-                              W,
-                              randomizer_scale=randomizer_scale * sigma_)
+                              W_sel,
+                              randomizer_scale=randomizer_scale * sigma_sel)
 
         signs = conv.fit()
         signs_sel = conv_sel.fit()
@@ -75,7 +81,7 @@ def test_approx_pivot(n= 500,
         nonzero_sel = signs_sel != 0
         select_signs = signs[nonzero]
         beta_split = np.linalg.inv(X_mod.T.dot(X_mod)).dot(X_mod.T.dot(y_mod))
-        cov_split = np.linalg.inv(X_mod.T.dot(X_mod))*sigma_
+        cov_split = np.linalg.inv(X_mod.T.dot(X_mod)) * sigma_sel
         (observed_target,
          cov_target,
          cov_target_score,
@@ -83,7 +89,13 @@ def test_approx_pivot(n= 500,
                                           conv._W,
                                           nonzero,
                                           dispersion=dispersion)
-
+        (observed_target_split,
+         cov_target_split,
+         cov_target_score_split,
+         alternatives_split) = selected_targets(conv_sel.loglike,
+                                          conv_sel._W,
+                                          nonzero_sel,
+                                          dispersion=dispersion_sel)
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         X_S = np.asarray(X[:,nonzero])
@@ -103,13 +115,27 @@ def test_approx_pivot(n= 500,
         naive_pivot = []
         lee_pivot = []
         split_pivot = []
+        ci_lower = np.repeat(-float('inf'), nonzero.sum())
+        ci_upper = np.repeat(float('inf'), nonzero.sum())
+        length = np.repeat(float('inf'), nonzero.sum())
+        coverage = np.repeat(False, nonzero.sum())
+        ci_lower_naive = np.repeat(-float('inf'), nonzero.sum())
+        ci_upper_naive = np.repeat(float('inf'), nonzero.sum())
+        length_naive = np.repeat(float('inf'), nonzero.sum())
+        coverage_naive = np.repeat(False, nonzero.sum())
+        ci_lower_lee = np.repeat(-float('inf'), nonzero.sum())
+        ci_upper_lee = np.repeat(float('inf'), nonzero.sum())
+        length_lee = np.repeat(float('inf'), nonzero.sum())
+        coverage_lee = np.repeat(False, nonzero.sum())
+        ci_lower_split = np.repeat(-float('inf'), nonzero.sum())
+        ci_upper_split = np.repeat(float('inf'), nonzero.sum())
+        length_split = np.repeat(float('inf'), nonzero.sum())
+        coverage_split = np.repeat(False, nonzero.sum())
         for m in range(nonzero.sum()):
             observed_target_uni = (observed_target[m]).reshape((1,))
             cov_target_uni = (np.diag(cov_target)[m]).reshape((1,1))
             cov_target_score_uni = cov_target_score[m,:].reshape((1, p))
             mean_parameter = beta_target[m]
-            mean_split_para = beta_split[m]
-            cov_target_split = cov_split[m,m]
             grid = np.linspace(- 25., 25., num=grid_num)
             grid_indx_obs = np.argmin(np.abs(grid - observed_target_uni))
             e_vector = np.zeros(nonzero.sum())
@@ -148,15 +174,77 @@ def test_approx_pivot(n= 500,
                                                                     approx_log_ref,
                                                                     delta_low,
                                                                     delta_high)
-            area_cum_split = approx_density_split(grid,
-                                                      mean_split_para,
-                                                      cov_target_split)
+
+            param_grid = np.linspace(-100, 100, num=2001)
+            ci_lower[m], ci_upper[m] = approx_ci(param_grid,
+                                           grid,
+                                           cov_target_uni,
+                                           approx_log_ref,
+                                           grid_indx_obs,
+                                           delta_low,
+                                           delta_high)
+
+            if ci_lower[m] > -float('inf'):
+                if ci_upper[m] < float('inf'):
+                    length[m] = ci_upper[m] - ci_lower[m]
+
+
+            if ci_lower[m] < 0 < ci_upper[m]:
+                coverage[m]=True
+
             pivot.append(min(2*(1. - area_cum[grid_indx_obs]), 2*(area_cum[grid_indx_obs])))
-            naive_pivot.append(min(2*(1 -area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
+            naive_pivot.append(min(2*(1 - area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
             lee_pivot.append(min(2*(1. - area_cum[grid_indx_obs]),2*area_cum[grid_indx_obs]))
+            print("variable completed ", m+1)
+        for m in range(nonzero_sel.sum()):
+            observed_target_uni = (observed_target_split[m]).reshape((1,))
+            cov_target_uni = (np.diag(cov_target_split)[m]).reshape((1,1))
+            cov_target_score_uni = cov_target_score_split[m,:].reshape((1, p))
+            mean_parameter = beta_split[m]
+            grid = np.linspace(- 25., 25., num=grid_num)
+            grid_indx_obs = np.argmin(np.abs(grid - observed_target_uni))
+            approx_log_ref = approx_reference(grid,
+                                             observed_target_uni,
+                                             cov_target_uni,
+                                             cov_target_score_uni,
+                                             conv.observed_opt_state,
+                                             conv.cond_mean,
+                                             conv.cond_cov,
+                                             conv.logdens_linear,
+                                             conv.A_scaling,
+                                             conv.b_scaling)
+
+            _, area_cum_split, _ = approx_density(grid,
+                                            mean_parameter,
+                                            cov_target_uni,
+                                            approx_log_ref
+                                            )
+
+            param_grid = np.linspace(-100, 100, num=2001)
+
+            ci_lower[m], ci_upper[m]= approx_ci(param_grid,
+                                           grid,
+                                           cov_target_uni,
+                                           approx_log_ref,
+                                           grid_indx_obs
+                                                )
+
+            if ci_lower[m] > -float('inf'):
+                if ci_upper[m] < float('inf'):
+                    length[m] = ci_upper[m] - ci_lower[m]
+
+
+            if ci_lower[m] <= 0 <= ci_upper[m]:
+                coverage[m]=True
+
             split_pivot.append(min(2*(1. - area_cum_split[grid_indx_obs]),area_cum_split[grid_indx_obs]))
             print("variable completed ", m+1)
-        return pivot, naive_pivot, lee_pivot, split_pivot
+        total_length = np.sum(length)
+        total_coverage = np.sum(coverage)
+        print(coverage)
+        print(ci_lower)
+        print(ci_upper)
+        return pivot, naive_pivot, lee_pivot, split_pivot, total_length, total_coverage, nonzero.sum()
 
 
 def test_approx_pivot_adaptive(n=200,
@@ -181,7 +269,7 @@ def test_approx_pivot_adaptive(n=200,
 
         n, p = X.shape
         sel = np.append(np.repeat(True, n / 2), np.repeat(False, n - n / 2))
-        sel = np.random.shuffle(sel)
+        np.random.shuffle(sel)
         mod = np.logical_not(sel)
         X_sel = X[:sel]
         y_sel = y[:sel]
@@ -193,14 +281,17 @@ def test_approx_pivot_adaptive(n=200,
 
         if n > p:
             dispersion = np.linalg.norm(y - X.dot(np.linalg.pinv(X).dot(y))) ** 2 / (n - p)
+            dispersion_sel = np.linalg.norm(y_sel - X_sel.dot(np.linalg.pinv(X_sel).dot(y_sel))) ** 2 / (n/2 - p)
             sigma_ = np.sqrt(dispersion)
+            sigma_sel = np.sqrt(dispersion_sel)
         else:
             dispersion = None
             sigma_ = np.std(y)
 
         scaling = np.linalg.inv(X.T.dot(X))/(2.* sigma_)
-        scaling_sel = np.linalg.inv(X_sel.T.dot(X_sel))/(2.*sigma_)
+        scaling_sel = np.linalg.inv(X_sel.T.dot(X_sel))/(2.*sigma_sel)
         W = 1./np.abs(scaling.dot(X.T.dot(y)))
+        W_sel = 1. / np.abs(scaling.dot(X_sel.T.dot(y_sel)))
         W_split = 1./np.abs(scaling_sel.dot(X_sel.T.dot(y_sel)))
         conv = lasso.gaussian(X,
                               y,
@@ -209,14 +300,14 @@ def test_approx_pivot_adaptive(n=200,
         conv_split = lasso.gaussian(X_sel,
                               y_sel,
                               W_sel,
-                              randomizer_scale=randomizer_scale * sigma_)
+                              randomizer_scale=randomizer_scale * sigma_sel)
         signs = conv.fit()
         signs_sel = conv_split.fit()
         nonzero = signs != 0
         nonzero_sel = signs_sel != 0
 
         beta_split = np.linalg.inv(X_mod.T.dot(X_mod)).dot(X_mod.T.dot(y_mod))
-        cov_split = np.linalg.inv(X_mod.T.dot(X_mod)) * sigma_
+        cov_split = np.linalg.inv(X_mod.T.dot(X_mod)) * sigma_sel
 
         (observed_target,
          cov_target,
@@ -231,6 +322,10 @@ def test_approx_pivot_adaptive(n=200,
         pivot = []
         naive_pivot = []
         split_pivot = []
+        ci_lower = np.repeat(-float('inf'), nonzero.sum())
+        ci_upper = np.repeat(float('inf'), nonzero.sum())
+        length = np.repeat(float('inf'), nonzero.sum())
+        coverage = np.repeat(False, nonzero.sum())
         for m in range(nonzero.sum()):
             observed_target_uni = (observed_target[m]).reshape((1,))
             cov_target_uni = (np.diag(cov_target)[m]).reshape((1, 1))
@@ -260,17 +355,38 @@ def test_approx_pivot_adaptive(n=200,
             area_cum, area_cum_naive, _ = approx_density(grid,
                                       mean_parameter,
                                       cov_target_uni,
-                                      approx_log_ref)
-            area_cum_split = approx_density_split(grid,
+                                      approx_log_ref,
+                                      -float('inf'),
+                                      float('inf'))
+            area_cum_split = approx_density(grid,
                                                       mean_split_para,
                                                       cov_target_split)
+            param_grid = np.linspace(-2 * mean_parameter, 2 * mean_parameter, num=grid_num)
+            ci_lower[m], ci_upper[m] = approx_ci(param_grid,
+                                                 grid,
+                                                 cov_split,
+                                                 approx_log_ref,
+                                                 grid_indx_obs,
+                                                 -float('inf'),
+                                                 float('inf'))
+
+            if ci_lower[m] > -float('inf'):
+                if ci_upper[m] < float('inf'):
+                    length[m] = ci_upper[m] - ci_lower[m]
+
+            if ci_lower[m] <= 0 <= ci_upper[m]:
+                coverage[m] = True
             pivot.append(min(2*(1 -area_cum[grid_indx_obs]),2*(area_cum[grid_indx_obs])))
 
             naive_pivot.append(min(2*(1 -area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
             split_pivot.append(min(2*(1 -area_cum_split[grid_indx_obs]),2*(area_cum_split[grid_indx_obs])))
             print("variable completed ", m + 1)
-
-        return pivot, naive_pivot, split_pivot
+        total_length = np.sum(length)
+        total_coverage = np.sum(coverage)
+        print(coverage)
+        print(ci_lower)
+        print(ci_upper)
+        return pivot, naive_pivot, split_pivot, total_length, total_coverage
 
 
 def test_approx_pivot_carved(n= 100,
@@ -365,8 +481,10 @@ def ECDF_pivot(nsim=300):
     _pivot_naive = []
     _pivot_lee = []
     _pivot_split = []
+    average_length = np.repeat(float('inf'),nsim)
+    coverage = np.repeat(1, nsim)
     for i in range(nsim):
-        test_pivot, test_pivot_naive, test_pivot_lee, test_pivot_split = test_approx_pivot(n= 200,
+        test_pivot, test_pivot_naive, test_pivot_lee, test_pivot_split, average_length[i], coverage[i], varno = test_approx_pivot(n= 200,
                                                                          p= 50,
                                                                          signal_fac= 0.25,
                                                                          s= 5,
@@ -384,19 +502,49 @@ def ECDF_pivot(nsim=300):
     ecdf_MLE_lee = ECDF(np.asarray(_pivot_lee))
     ecdf_MLE_split = ECDF(np.asarray(_pivot_split))
     grid = np.linspace(0, 1, 101)
-    #plt.plot(grid, ecdf_MLE(grid), c='blue', marker='^')
+    plt.plot(grid, ecdf_MLE(grid), c='blue', marker='^')
     plt.plot(grid, ecdf_MLE_naive(grid), c='red', marker='o')
-    #plt.plot(grid, ecdf_MLE_lee(grid), c='green', marker='^')
+    plt.plot(grid, ecdf_MLE_lee(grid), c='green', marker='^')
     plt.plot(grid, ecdf_MLE_split(grid), c='yellow', marker='o')
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-ECDF_pivot(nsim=50)
+#ECDF_pivot(nsim=50)
+
+def CI_pivot(nsim=300):
+    _pivot = []
+    _pivot_naive = []
+    _pivot_lee = []
+    _pivot_split = []
+    total = 0
+    total_length = np.repeat(float('inf'), nsim)
+    total_coverage = np.repeat(1, nsim)
+    for i in range(nsim):
+        test_pivot, test_pivot_naive, test_pivot_lee, test_pivot_split, total_length[i], total_coverage[i], varno = test_approx_pivot(n=200,
+                                                                                           p=50,
+                                                                                           signal_fac=0.25,
+                                                                                           s=5,
+                                                                                           sigma=1.,
+                                                                                           rho=0.40,
+                                                                                           randomizer_scale=1.)
+        _pivot.extend(test_pivot)
+        _pivot_naive.extend(test_pivot_naive)
+        _pivot_lee.extend(test_pivot_lee)
+        _pivot_split.extend(test_pivot_split)
+        print("iteration completed ", i)
+        total = total + varno
+    average = np.sum(total_length)/total
+    cover = np.sum(total_coverage)/total
+    print(average)
+    print(cover)
+
+CI_pivot(nsim=5)
+
 def ECDF_pivot_adapt(nsim=300):
     _pivot = []
     _pivot_split = []
     for i in range(nsim):
-        test_pivot, _ , test_pivot_split = test_approx_pivot_adaptive(n=1000,
+        test_pivot, _ , test_pivot_split, _, _ = test_approx_pivot_adaptive(n=1000,
                                           p=200,
                                           signal_fac=0.25,
                                           s=15,
@@ -408,6 +556,7 @@ def ECDF_pivot_adapt(nsim=300):
         print("iteration completed ", i)
     plt.clf()
     ecdf_MLE = ECDF(np.asarray(_pivot))
+    print(np.asarray(_pivot))
     ecdf_MLE_split = ECDF(np.asarray(_pivot_split))
     grid = np.linspace(0, 1, 101)
     plt.plot(grid, ecdf_MLE(grid), c='blue', marker='^')
@@ -415,7 +564,7 @@ def ECDF_pivot_adapt(nsim=300):
     plt.plot(grid, grid, 'k--')
     plt.show()
 
-#ECDF_pivot_adapt(nsim=200)
+#ECDF_pivot_adapt(nsim=10)
 def ECDF_pivot_naive(nsim=300):
     _pivot = []
     _pivot_adaptive = []
@@ -428,7 +577,7 @@ def ECDF_pivot_naive(nsim=300):
                                           rho=0.40,
                                           randomizer_scale=1.)
         _pivot_adaptive.extend(test_adaptive_naive)
-        _, test_naive, _ , _= test_approx_pivot(n=200,
+        _, test_naive, _ , _, _, _, _= test_approx_pivot(n=200,
                                           p=50,
                                           s=5,
                                           sigma=1.,
