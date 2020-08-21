@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 
 import numpy as np
+
 #np.seterr(divide='ignore', invalid='ignore')
 from scipy.stats import norm
 import rpy2.robjects.numpy2ri
@@ -115,11 +116,18 @@ def approx_density(grid,
             np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target) + approx_log_ref[k]))
         _approx_naive_density.append(
             norm.pdf((grid[k] - mean_parameter) / np.sqrt(cov_target)))
-        lee_append = 0.
-        if lee_lower < grid[k]:
-            if lee_upper > grid[k]:
-                lee_append = np.exp(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target))
-        _approx_density_lee.append(lee_append)
+
+    if lee_lower == float('inf'):
+        grid_lower = 0
+    else:
+        grid_lower = np.argmin(np.abs(grid - lee_lower))
+    if lee_upper == float('inf'):
+        grid_upper = grid.shape[0]
+    else:
+        grid_upper = np.argmin(np.abs(grid - lee_upper))
+    for k in range(grid.shape[0])[grid_lower:grid_upper]:
+        _approx_density_lee.append(-np.true_divide((grid[k] - mean_parameter) ** 2, 2 * cov_target))
+
     if np.asarray(_approx_density_lee).sum() == 0:
         _approx_density_ = _approx_density
     else:
@@ -138,7 +146,7 @@ def approx_ci(param_grid,
               grid,
               cov_target,
               approx_log_ref,
-              indx_obsv,
+              indx_obsv=100,
               lee_lower=-float('inf'),
               lee_upper=float('inf')):
 
@@ -164,3 +172,8 @@ def approx_ci(param_grid,
         return np.nanmin(region), np.nanmax(region)
     else:
         return 0., 0.
+    #if region_naive.size > 0:
+    #    return np.nanmin(region_naive), np.nanmax(region_naive)
+    #else:
+    #    return 0., 0.
+
