@@ -175,5 +175,5 @@ def approx_ci(param_grid,
     #if region_naive.size > 0:
     #    return np.nanmin(region_naive), np.nanmax(region_naive)
     #else:
-    #    return 0., 0.
+        return 0., 0.
 

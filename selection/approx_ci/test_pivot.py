@@ -129,17 +129,27 @@ def test_approx_pivot(n= 500,
         #lee_cis = fixedLassoInf(X_scaled, y, beta_glm, lambda_tuning, alpha=0.1, sigma = sigma)
         #ci_lee_glm = dollar(lee_cis, "ci")
         #ci_lee = []
-        #for i in range(50):
+        #for i in range(p):
         #    ci_lee = np.append(ci_lee, np.array((-float('inf'), float('inf'))))
-        #ci_lee = np.reshape(ci_lee,(50,2))
+        #ci_lee = np.reshape(ci_lee,(p,2))
         #ci_lee[(np.asarray(beta_glm)!=0),:] = ci_lee_glm
         #nonzero_lee = np.asarray(beta_glm) != 0
+        #ci_lee_nz = ci_lee[nonzero_lee,:]
         #beta_lee = np.linalg.pinv(X[:, nonzero_lee]).dot(X.dot(beta_glm))
         #length_lee = ci_lee[nonzero_lee,1] - ci_lee[nonzero_lee,0]
         #length_lee = length_lee[length_lee!=float('inf')]
         #coverage_lee = []
         #for i in range(nonzero_lee.sum()):
         #    coverage_lee = np.append(coverage_lee,(ci_lee[i,0] < beta_lee[i] < ci_lee[i,1]))
+        #alternates_lee = np.zeros(10 * 50 * nonzero_lee.sum())
+        #alternates_lee = np.reshape(alternates_lee, (10, 50, nonzero_lee.sum()))
+        #for j in range(10):
+        #    for i in range(50):
+        #        alternates_lee[j, i, :] = np.random.laplace(0, 0.5, nonzero_lee.sum())
+        #        alternates_lee[j, i, :] = alternates_lee[j, i, :] / np.linalg.norm(alternates_lee[j, i, :], ord=1) * j * p
+        #        alternates_lee[j, i, :] = alternates_lee[j, i, :] + beta_lee
+        #coverage_alt_lee = np.repeat(False, 10 * 50 * nonzero_lee.sum())
+        #coverage_alt_lee = np.reshape(coverage_alt_lee, (10, 50, nonzero_lee.sum()))
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         beta_split = np.linalg.pinv(X_mod[:,nonzero_sel]).dot(X_mod.dot(beta))
@@ -156,17 +166,16 @@ def test_approx_pivot(n= 500,
         #b = np.empty(b_0.shape[0]+b_1.shape[0])
         #b[0:b_0.shape[0]] = b_0
         #b[b_0.shape[0]:b_0.shape[0]+b_1.shape[0]] = b_1
-        #Plot for inferential power
-        alternates = np.zeros(50*nonzero.sum())
-        alternates = np.reshape(alternates,(50,nonzero.sum()))
-        for i in range(50):
-            alternates[i, :] = np.random.laplace(0, 0.5, nonzero.sum())
-            alternates[i, :] = alternates[i]/np.linalg.norm(alternates[i, :], ord=1)*400
-            print(np.linalg.norm(alternates[i,:]))
-            alternates[i, :] = alternates[i, :] + beta_target
-        print(np.linalg.norm(alternates[1,:]-beta_target,ord =1))
-        coverage_alt = np.repeat(False, 50*nonzero.sum())
-        coverage_alt = np.reshape(coverage_alt, (50, nonzero.sum()))
+        # Plot for inferential power
+        alternates = np.zeros(10 * 50 * nonzero.sum())
+        alternates = np.reshape(alternates, (10, 50, nonzero.sum()))
+        for j in range(10):
+            for i in range(50):
+                alternates[j, i, :] = np.random.laplace(0, 0.5, nonzero.sum())
+                alternates[j, i, :] = alternates[j, i, :] / np.linalg.norm(alternates[j, i, :], ord=1) * j * p
+                alternates[j, i, :] = alternates[j, i, :] + beta_target
+        coverage_alt = np.repeat(False, 10 * 50 * nonzero.sum())
+        coverage_alt = np.reshape(coverage_alt, (10, 50, nonzero.sum()))
         pivot = []
         naive_pivot = []
         lee_pivot = []
@@ -181,7 +190,7 @@ def test_approx_pivot(n= 500,
         coverage_sel = np.repeat(False, nonzero_sel.sum())
         #delta_low = -float('inf')
         #delta_high = float('inf')
-        #LASSO with Selective, Naive and Lee
+        #LASSO with Selective, Naive
         for m in range(nonzero.sum()):
             observed_target_uni = (observed_target[m]).reshape((1,))
             cov_target_uni = (np.diag(cov_target)[m]).reshape((1,1))
@@ -246,27 +255,22 @@ def test_approx_pivot(n= 500,
 
             param_grid = np.linspace(-100, 100, num=2001)
             ci_lower[m], ci_upper[m] = approx_ci(param_grid,
-                                           grid,
-                                           cov_target_uni,
-                                           approx_log_ref,
-                                           grid_indx_obs)
-
+                                                 grid,
+                                                 cov_target_uni,
+                                                 approx_log_ref,
+                                                 grid_indx_obs,
+                                                 -float('inf'),
+                                                 float('inf'))
             if ci_lower[m] > -float('inf'):
                 if ci_upper[m] < float('inf'):
                     length[m] = ci_upper[m] - ci_lower[m]
+            if ci_lower[m] <= beta_target[m] <= ci_upper[m]:
+                coverage[m] = True
+            pivot.append(min(2*(1 -area_cum[grid_indx_obs]),2*(area_cum[grid_indx_obs])))
 
-            if ci_lower[m] < beta_target[m] < ci_upper[m]:
-                coverage[m]=True
-            #if ci_lee_selected[m,0] > -float('inf'):
-            #    if ci_lee_selected[m,1] < float('inf'):
-            #        length_lee = np.append(length_lee, (ci_lee_selected[m,1]-ci_lee_selected[m,0]))
-            #if ci_lee_selected[m,0] < beta_target[m] < ci_lee_selected[m,1]:
-            #    coverage_lee[m]=True
-            pivot.append(min(2*(1. - area_cum[grid_indx_obs]), 2*(area_cum[grid_indx_obs])))
-            naive_pivot.append(min(2*(1 - area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
-            #lee_pivot.append(min(2*(1. - area_cum_lee[grid_indx_lee]), 2*area_cum_lee[grid_indx_lee]))
-            #lee_pivot.append(1. - area_cum_lee[grid_indx_lee])
-            print("variable completed ", m+1)
+            naive_pivot.append(min(2*(1 -area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
+
+            print("variable completed ", m + 1)
         #Data Splitting Case
         for m in range(nonzero_sel.sum()):
             observed_target_uni = (observed_target_split[m]).reshape((1,))
@@ -292,33 +296,33 @@ def test_approx_pivot(n= 500,
                                             approx_log_ref
                                             )
 
-            param_grid = np.linspace(-100, 100, num=2001)
+            #param_grid = np.linspace(-100, 100, num=2001)
 
             #ci_lower_sel[m], ci_upper_sel[m]= approx_ci(param_grid,
             #                               grid,
             #                               cov_target_uni,
             #                               approx_log_ref)
-            #
+
             #if ci_lower_sel[m] > -float('inf'):
             #    if ci_upper_sel[m] < float('inf'):
             #        length_sel[m] = ci_upper_sel[m] - ci_lower_sel[m]
-            #
-            #
+
+
             #if ci_lower_sel[m] <= beta_split[m] <= ci_upper_sel[m]:
             #    coverage_sel[m]=True
 
-            split_pivot.append(min(2*(1. - area_cum_split[grid_indx_obs]), area_cum_split[grid_indx_obs]))
-            print("variable completed ", m+1)
+            #split_pivot.append(min(2*(1. - area_cum_split[grid_indx_obs]), area_cum_split[grid_indx_obs]))
+            #print("variable completed ", m+1)
         for m in range(nonzero.sum()):
-            for k in range(50):
-                if ci_lower[m] < alternates[k,m] < ci_upper[m]:
-                    coverage_alt[k,m] = True
-        coverage_alt = np.reshape(coverage_alt,(50*nonzero.sum()))
-        print(coverage_alt)
-        #print(length_sel)
-        #print(ci_lower_sel)
-        #print(ci_upper_sel)
-        return pivot, naive_pivot, lee_pivot, split_pivot, length_sel, coverage_alt
+            for j in range(10):
+                for k in range(50):
+                    if ci_lower[m] < alternates[j, k, m] < ci_upper[m]:
+                        coverage_alt[j, k, m] = True
+        #coverage_alt = np.reshape(coverage_alt,(50*nonzero.sum()))
+        for j in range(10):
+            print("coverage of alternates:", coverage_alt[j, :, :].sum() / (50 * nonzero.sum()))
+
+        return pivot, naive_pivot, lee_pivot, split_pivot, length_sel, coverage_sel
 
 
 def test_approx_pivot_adaptive(n=200,
@@ -391,6 +395,16 @@ def test_approx_pivot_adaptive(n=200,
         grid_num = 501
         beta_target = np.linalg.pinv(X[:, nonzero]).dot(X.dot(beta))
         beta_split = np.linalg.pinv(X_mod[:, nonzero_sel]).dot(X_mod.dot(beta))
+        # Plot for inferential power
+        alternates = np.zeros(10*50*nonzero_sel.sum())
+        alternates = np.reshape(alternates,(10,50,nonzero_sel.sum()))
+        for j in range(10):
+            for i in range(50):
+                alternates[j, i, :] = np.random.laplace(0, 0.5, nonzero_sel.sum())
+                alternates[j, i, :] = alternates[j, i, :]/np.linalg.norm(alternates[j, i, :], ord=1)*j*p
+                alternates[j, i, :] = alternates[j, i, :] + beta_split
+        coverage_alt = np.repeat(False, 10*50*nonzero_sel.sum())
+        coverage_alt = np.reshape(coverage_alt, (10,50, nonzero_sel.sum()))
         pivot = []
         naive_pivot = []
         split_pivot = []
@@ -414,17 +428,27 @@ def test_approx_pivot_adaptive(n=200,
                                                        observed_target_uni,
                                                        cov_target_uni,
                                                        cov_target_score_uni,
-                                                       conv.observed_opt_state,
-                                                       conv.cond_mean,
-                                                       conv.cond_cov,
-                                                       conv.logdens_linear,
-                                                       conv.A_scaling,
-                                                       conv.b_scaling,
-                                                       conv.initial_subgrad,
-                                                       conv.feature_weights,
-                                                       conv.observed_score_state,
-                                                       nonzero,
-                                                       scaling)
+                                                       conv_sel.observed_opt_state,
+                                                       conv_sel.cond_mean,
+                                                       conv_sel.cond_cov,
+                                                       conv_sel.logdens_linear,
+                                                       conv_sel.A_scaling,
+                                                       conv_sel.b_scaling,
+                                                       conv_sel.initial_subgrad,
+                                                       conv_sel.feature_weights,
+                                                       conv_sel.observed_score_state,
+                                                       nonzero_sel,
+                                                       scaling_sel)
+            #approx_log_ref = approx_reference(grid,
+            #                                  observed_target_uni,
+            #                                  cov_target_uni,
+            #                                  cov_target_score_uni,
+            #                                  conv_sel.observed_opt_state,
+            #                                  conv_sel.cond_mean,
+            #                                  conv_sel.cond_cov,
+            #                                  conv_sel.logdens_linear,
+            #                                  conv_sel.A_scaling,
+            #                                  conv_sel.b_scaling)
 
             area_cum, area_cum_naive, _ = approx_density(grid,
                                                          mean_parameter,
@@ -433,7 +457,7 @@ def test_approx_pivot_adaptive(n=200,
                                                          -float('inf'),
                                                          float('inf'))
 
-            param_grid = np.linspace(-100, 100, num=2001)
+            #param_grid = np.linspace(-100, 100, num=2001)
             #ci_lower[m], ci_upper[m] = approx_ci(param_grid,
             #                                     grid,
             #                                     cov_target_uni,
@@ -441,19 +465,17 @@ def test_approx_pivot_adaptive(n=200,
             #                                     grid_indx_obs,
             #                                     -float('inf'),
             #                                     float('inf'))
-            #
             #if ci_lower[m] > -float('inf'):
             #    if ci_upper[m] < float('inf'):
             #        length[m] = ci_upper[m] - ci_lower[m]
-            #
             #if ci_lower[m] <= beta_target[m] <= ci_upper[m]:
             #    coverage[m] = True
-            pivot.append(min(2*(1 -area_cum[grid_indx_obs]),2*(area_cum[grid_indx_obs])))
+            #pivot.append(min(2*(1 -area_cum[grid_indx_obs]),2*(area_cum[grid_indx_obs])))
 
-            naive_pivot.append(min(2*(1 -area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
+            #naive_pivot.append(min(2*(1 -area_cum_naive[grid_indx_obs]),2*(area_cum_naive[grid_indx_obs])))
 
-            print("variable completed ", m + 1)
-        for m in range(nonzero.sum()):
+            #print("variable completed ", m + 1)
+        for m in range(nonzero_sel.sum()):
             observed_target_uni = (observed_target_split[m]).reshape((1,))
             cov_target_uni = (np.diag(cov_target_split)[m]).reshape((1, 1))
             cov_target_score_uni = cov_target_score_split[m, :].reshape((1, p))
@@ -476,6 +498,16 @@ def test_approx_pivot_adaptive(n=200,
                                                        conv_sel.observed_score_state,
                                                        nonzero_sel,
                                                        scaling_sel)
+            #approx_log_ref = approx_reference(grid,
+            #                                           observed_target_uni,
+            #                                           cov_target_uni,
+            #                                           cov_target_score_uni,
+            #                                           conv_sel.observed_opt_state,
+            #                                           conv_sel.cond_mean,
+            #                                           conv_sel.cond_cov,
+            #                                           conv_sel.logdens_linear,
+            #                                           conv_sel.A_scaling,
+            #                                           conv_sel.b_scaling)
 
             _, area_cum_naive, _ = approx_density(grid,
                                                          mean_parameter,
@@ -499,12 +531,19 @@ def test_approx_pivot_adaptive(n=200,
 
             if ci_lower_sel[m] <= beta_split[m] <= ci_upper_sel[m]:
                 coverage_sel[m] = True
-
             split_pivot.append(min(2 * (1 - area_cum_naive[grid_indx_obs]), 2 * (area_cum_naive[grid_indx_obs])))
+        for m in range(nonzero_sel.sum()):
+            print(ci_upper_sel[m])
+            print(ci_lower_sel[m])
+            for j in range(10):
+                for k in range(50):
+                    if ci_lower_sel[m] < alternates[j,k,m] < ci_upper_sel[m]:
+                        coverage_alt[j,k,m] = True
+        # coverage_alt = np.reshape(coverage_alt,(50*nonzero.sum()))
+        for j in range(10):
+            print("coverage of alternates:",coverage_alt[j,:,:].sum()/(50*nonzero_sel.sum()))
 
-        print(coverage)
-        print(ci_lower)
-        print(ci_upper)
+
         return pivot, naive_pivot, split_pivot, length, coverage
 
 
@@ -638,10 +677,10 @@ def CI_pivot(nsim=300):
     length = np.empty(0)
     coverage = np.empty(0)
     for i in range(nsim):
-        test_pivot, test_pivot_naive, test_pivot_lee, test_pivot_split, length_new, coverage_new = test_approx_pivot(n=200,
-                                                                                           p=50,
+        test_pivot, test_pivot_naive, test_pivot_lee, test_pivot_split, length_new, coverage_new = test_approx_pivot(n=2000,
+                                                                                           p=500,
                                                                                            signal_fac=0.25,
-                                                                                           s=5,
+                                                                                           s=20,
                                                                                            sigma=1.,
                                                                                            rho=0.40,
                                                                                            randomizer_scale=1.)
@@ -661,7 +700,7 @@ def CI_pivot(nsim=300):
     print(std_coverage)
     print(std_length)
 
-CI_pivot(nsim=1)
+#CI_pivot(nsim=1)
 
 def CI_pivot_adapt(nsim=300):
     _pivot = []
@@ -670,10 +709,10 @@ def CI_pivot_adapt(nsim=300):
     length = np.empty(0)
     coverage = np.empty(0)
     for i in range(nsim):
-        test_pivot, test_pivot_naive, test_pivot_split, length_new, coverage_new = test_approx_pivot_adaptive(n=200,
-                                                                                           p=50,
+        test_pivot, test_pivot_naive, test_pivot_split, length_new, coverage_new = test_approx_pivot_adaptive(n=2000,
+                                                                                           p=500,
                                                                                            signal_fac=0.25,
-                                                                                           s=5,
+                                                                                           s=20,
                                                                                            sigma=1.,
                                                                                            rho=0.40,
                                                                                            randomizer_scale=1.)
@@ -687,12 +726,12 @@ def CI_pivot_adapt(nsim=300):
     std_length = np.std(length)
     average_coverage = np.mean(coverage)
     std_coverage = np.std(coverage)
-    print(average_coverage)
-    print(average_length)
-    print(std_coverage)
-    print(std_length)
+    #print(average_coverage)
+    #print(average_length)
+    #print(std_coverage)
+    #print(std_length)
 
-#CI_pivot_adapt(3)
+CI_pivot_adapt(1)
 def ECDF_pivot_adapt(nsim=300):
     _pivot = []
     _pivot_split = []
